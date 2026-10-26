@@ -63,6 +63,26 @@ class OpenAIAdapterTests(unittest.TestCase):
         self.assertEqual(result['request']['analysis_mode'], 'synthetic')
         self.assertIn('ДОВЕРЕННЫЙ РЕЖИМ: СИНТЕТИЧЕСКИЙ СЦЕНАРИЙ', body['input'][0]['content'])
 
+    def test_terminal_quote_recovery_keeps_original_model_output(self):
+        self.payload['vacancy']['description'] += ' Грамотная письменная речь;'
+        self.analysis['requirements'][0]['quote'] = 'Грамотная письменная речь.'
+        original_text = json.dumps(self.analysis)
+        self.envelope['output'][1]['content'][0]['text'] = original_text
+        result, _ = self.call_with_response(200, self.envelope)
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['output_text'], original_text)
+        self.assertEqual(result['assessment']['analysis']['requirements'][0]['quote'], 'Грамотная письменная речь;')
+        self.assertEqual(len(result['validation_recovery']['changes']), 1)
+
+    def test_terminal_quote_recovery_does_not_hide_other_validation_errors(self):
+        self.payload['vacancy']['description'] += ' Грамотная письменная речь;'
+        self.analysis['requirements'][0]['quote'] = 'Грамотная письменная речь.'
+        self.analysis['requirements'][0]['profile_evidence_ids'] = ['foreign_id']
+        self.envelope['output'][1]['content'][0]['text'] = json.dumps(self.analysis)
+        result, _ = self.call_with_response(200, self.envelope)
+        self.assertEqual(result['status'], 'analysis_failed')
+        self.assertNotIn('assessment', result)
+
     def test_http_errors_are_saved_without_body_and_without_retries(self):
         for status in (400, 401, 403, 429, 500, 302):
             with self.subTest(status=status):

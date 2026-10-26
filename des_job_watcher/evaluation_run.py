@@ -58,6 +58,10 @@ def write_report(directory, summary):
         if result['status'] != 'completed':
             continue
         lines.extend(['', f"## {result['case_id']}", ''])
+        if result.get('validation_recovery'):
+            count = len(result['validation_recovery']['changes'])
+            lines.append(f'Локально восстановлено цитат: {count} (. ↔ ; в конце). '
+                         'Исходный ответ и журнал правок сохранены в файле результата.')
         for check in result['checks']:
             if not check['passed']:
                 lines.append(f"- Расхождение `{check['path']}`: получено `{check['actual']}`, "
@@ -100,6 +104,8 @@ def run_cases(dataset, jobs, directory, analyze, on_result=None):
                 completed = False
             result = {'case_id': case['id'], 'status': 'completed' if completed else 'failed',
                       'usage': record.get('usage'), 'elapsed_seconds': record.get('elapsed_seconds')}
+            if record.get('validation_recovery'):
+                result['validation_recovery'] = record['validation_recovery']
             if completed:
                 assessment = record['assessment']
                 result.update(decision=assessment['decision'], delivery=assessment['delivery']['action'],

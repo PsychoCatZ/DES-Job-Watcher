@@ -8,6 +8,7 @@ import httpx
 
 from des_job_watcher.assessment import AnalysisValidationError, parse_response, validate_and_decide
 from des_job_watcher.prompting import ROOT, build_request, canonical_json, fingerprint
+from des_job_watcher.quote_recovery import repair_terminal_punctuation
 
 
 MODEL = 'gpt-6-luna'
@@ -116,7 +117,17 @@ def analyze_once(payload, api_key, client=None, *, mode='production'):
             output_text = extract_output(envelope)
             record['output_text'] = output_text
             analysis = parse_response(output_text)
-            record['assessment'] = validate_and_decide(analysis, payload)
+            try:
+                record['assessment'] = validate_and_decide(analysis, payload)
+            except AnalysisValidationError:
+                corrected, changes = repair_terminal_punctuation(analysis, payload)
+                if not changes:
+                    raise
+                # Пунктуационная правка не разрешает остальные ошибки ответа.
+                record['assessment'] = validate_and_decide(corrected, payload)
+                record['validation_recovery'] = {
+                    'strategy': 'terminal_period_semicolon_v1', 'changes': changes,
+                    'note': 'Исходный output_text сохранён; assessment содержит локально исправленные цитаты.'}
             record['status'] = 'completed'
         except AnalysisValidationError as error:
             record['error'] = str(error)
