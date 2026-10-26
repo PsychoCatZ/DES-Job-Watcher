@@ -1,0 +1,70 @@
+{
+  "dataset_version": 3,
+  "split": "development",
+  "labels_status": "synthetic_examples",
+  "warning": "Все вакансии и работодатели вымышленные.",
+  "cases": [
+    {
+      "id": "demo_chat",
+      "label": "Вымышленный учебный случай",
+      "profile_id": "support",
+      "readiness": "ready",
+      "prerequisites": [],
+      "text_file": "texts/demo_chat.txt",
+      "text_sha256": "85b6ce957fb4161512c9cae4b32a8bf16058132e02427f3ffb4c7a980867a917",
+      "checks": [
+        {
+          "path": "delivery.action",
+          "allowed": [
+            "show",
+            "review"
+          ]
+        }
+      ],
+      "human_checks": [
+        "Проверить цитаты и основания; учебные ожидания не являются независимым эталоном."
+      ]
+    },
+    {
+      "id": "demo_voice",
+      "label": "Вымышленный учебный случай",
+      "profile_id": "support",
+      "readiness": "ready",
+      "prerequisites": [],
+      "text_file": "texts/demo_voice.txt",
+      "text_sha256": "6ddad9b1a00268da2b9217cbdd3f8c47894ef8113838f186e0af923a21c1c13c",
+      "checks": [
+        {
+          "path": "delivery.action",
+          "allowed": [
+            "exclude"
+          ]
+        }
+      ],
+      "human_checks": [
+        "Проверить цитаты и основания; учебные ожидания не являются независимым эталоном."
+      ]
+    },
+    {
+      "id": "demo_data",
+      "label": "Вымышленный учебный случай",
+      "profile_id": "ai_data",
+      "readiness": "ready",
+      "prerequisites": [],
+      "text_file": "texts/demo_data.txt",
+      "text_sha256": "cd8c070ff35a7cb5bf3185d2322a6b8c2f95ab4be719603ecf42bdde23524d49",
+      "checks": [
+        {
+          "path": "delivery.action",
+          "allowed": [
+            "show",
+            "review"
+          ]
+        }
+      ],
+      "human_checks": [
+        "Проверить цитаты и основания; учебные ожидания не являются независимым эталоном."
+      ]
+    }
+  ]
+}

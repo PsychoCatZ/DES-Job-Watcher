@@ -1,0 +1,164 @@
+{
+  "profile_id": "support",
+  "version": 1,
+  "label": "Письменная техническая поддержка — DEMO",
+  "source_resume": "Синтетический пример без реального PDF",
+  "evidence_note": "Все сведения вымышленные; использовать только для обучения.",
+  "target_tasks": [
+    "Письменная техническая поддержка"
+  ],
+  "working_method": "Учебные задачи с AI-инструментами.",
+  "evidence": [
+    {
+      "id": "support_01",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебная письменная поддержка и диагностика Windows/Linux."
+    },
+    {
+      "id": "support_02",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебная разметка и проверка ошибок в данных."
+    },
+    {
+      "id": "support_03",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебная работа с промптами и API."
+    },
+    {
+      "id": "support_04",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебная проверка ответов и логики."
+    },
+    {
+      "id": "support_05",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебная подготовка текстовых данных и инструкций."
+    },
+    {
+      "id": "support_06",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебная автоматизация с Python и API."
+    },
+    {
+      "id": "support_07",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Вымышленный учебный опыт: Git и GitHub."
+    },
+    {
+      "id": "support_08",
+      "period": "Учебный пример",
+      "context": "Вымышленные сведения",
+      "fact": "Учебное обслуживание баз данных 1С; конкретные SQL/NoSQL не подтверждены."
+    },
+    {
+      "id": "support_source_target",
+      "period": "Учебный пример",
+      "context": "Синтетический раздел; настоящего PDF нет",
+      "fact": "ВЫМЫШЛЕННЫЙ УЧЕБНЫЙ ПРОФИЛЬ. Письменная техническая поддержка",
+      "kind": "resume_section",
+      "source_pages": [
+        1
+      ]
+    },
+    {
+      "id": "support_source_experience",
+      "period": "Учебный пример",
+      "context": "Синтетический раздел; настоящего PDF нет",
+      "fact": "Вымышленная учебная компания. Администрирование рабочих станций и серверов (Windows, Linux); слияние и обслуживание баз 1С. Письменная поддержка, Help Desk, инструкции. Разметка изображений и проверка качества данных. Это пример структуры, не биография реального человека.",
+      "kind": "resume_section",
+      "source_pages": [
+        1
+      ]
+    },
+    {
+      "id": "support_source_education",
+      "period": "Учебный пример",
+      "context": "Синтетический раздел; настоящего PDF нет",
+      "fact": "Вымышленный кандидат: Среднее специальное образование. Учебное учреждение не указано.",
+      "kind": "resume_section",
+      "source_pages": [
+        1
+      ]
+    },
+    {
+      "id": "support_source_skills",
+      "period": "Учебный пример",
+      "context": "Синтетический раздел; настоящего PDF нет",
+      "fact": "Учебные навыки: Windows, Linux, Help Desk, Python, API, JSON, русский язык.",
+      "kind": "resume_section",
+      "source_pages": [
+        1
+      ]
+    },
+    {
+      "id": "support_source_about",
+      "period": "Учебный пример",
+      "context": "Синтетический раздел; настоящего PDF нет",
+      "fact": "ВЫМЫШЛЕННЫЙ ПРИМЕР: Python, JS/TS и API для учебной автоматизации. Git и GitHub. Speech-to-Text и клиент-серверные приложения в учебных проектах. Конкретные технологии должны быть подтверждены фактами своего резюме.",
+      "kind": "resume_section",
+      "source_pages": [
+        1
+      ]
+    }
+  ],
+  "education": {
+    "level": "secondary_vocational",
+    "label": "Среднее специальное",
+    "evidence_id": "support_source_education"
+  },
+  "boundaries": [
+    "Не выдавать учебные данные за сведения реального кандидата."
+  ],
+  "resume_audit": {
+    "method": "Синтетические разделы, не извлечение и не аудит реального PDF",
+    "sections": [
+      {
+        "section": "target",
+        "evidence_id": "support_source_target",
+        "pages": [
+          1
+        ],
+        "text_sha256": "08e974184e220bef5c95fe2ba27c50d51c376586ea73f62f830f3c1b60eb4442"
+      },
+      {
+        "section": "experience",
+        "evidence_id": "support_source_experience",
+        "pages": [
+          1
+        ],
+        "text_sha256": "a3df13a9b9c4f4e45a0f50c20b6872ffbe1ea749f403a2d0e2fed068a69727af"
+      },
+      {
+        "section": "education",
+        "evidence_id": "support_source_education",
+        "pages": [
+          1
+        ],
+        "text_sha256": "22617ae5025d53acc020414c1166a9011a6e64cb6da01e802ae88515b25ddbca"
+      },
+      {
+        "section": "skills",
+        "evidence_id": "support_source_skills",
+        "pages": [
+          1
+        ],
+        "text_sha256": "e29c2309be2a5060f21fcf1ef1f6981570b0568b7dd1095cadfe475b9c655af9"
+      },
+      {
+        "section": "about",
+        "evidence_id": "support_source_about",
+        "pages": [
+          1
+        ],
+        "text_sha256": "d9b330542ae307e4cc11ce34456df33901c2b252bb98eb66f2b19efab0e66b11"
+      }
+    ]
+  }
+}
