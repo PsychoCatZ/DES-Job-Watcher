@@ -10,7 +10,7 @@ from des_job_watcher.prompting import canonical_json, fingerprint
 from examples.prepare_analysis import build_input
 
 
-def prepare_cases(manifest, case_ids=None):
+def prepare_cases(manifest, case_ids=None, profile_dir=None):
     """Проверить весь выбранный набор до первого сетевого запроса."""
     dataset, loaded = load_cases(manifest)
     selected = set(case_ids or [])
@@ -23,7 +23,7 @@ def prepare_cases(manifest, case_ids=None):
             continue
         if case['readiness'] != 'ready':
             raise ValueError(f"{case['id']}: случай ещё не готов к анализу.")
-        payload = build_input(case['profile_id'], make_snapshot(case, text))
+        payload = build_input(case['profile_id'], make_snapshot(case, text), profile_dir=profile_dir)
         body, metadata = prepare_body(payload)
         jobs.append({'case': case, 'payload': payload, 'request': metadata,
                      'model': body['model'], 'reasoning': body['reasoning']['effort'],

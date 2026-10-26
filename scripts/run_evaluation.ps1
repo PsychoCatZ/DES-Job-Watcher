@@ -1,5 +1,7 @@
 param(
-    [string[]]$CaseIds = @()
+    [string[]]$CaseIds = @(),
+    [string]$Manifest,
+    [string]$ProfileDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,6 +14,8 @@ $secretPointer = [IntPtr]::Zero
 $runExitCode = 1
 $caseArguments = @()
 foreach ($caseId in $CaseIds) { $caseArguments += @('--case', $caseId) }
+if ($Manifest) { $caseArguments += @('--manifest', $Manifest) }
+if ($ProfileDirectory) { $caseArguments += @('--profile-directory', $ProfileDirectory) }
 
 Push-Location -LiteralPath $projectRoot
 try {

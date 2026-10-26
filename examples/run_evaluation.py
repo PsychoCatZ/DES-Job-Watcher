@@ -18,9 +18,11 @@ def main():
     parser.add_argument('--live', action='store_true')
     parser.add_argument('--manifest', type=Path, default=ROOT / 'data/evaluation/development/cases.json',
                         help='Локальный корпус либо вымышленные examples/fixtures/evaluation/cases.json')
+    parser.add_argument('--profile-directory', type=Path,
+                        help='Явная папка профилей; для синтетического прогона config/profile_examples')
     args = parser.parse_args()
     try:
-        dataset, jobs = prepare_cases(args.manifest, args.case_ids)
+        dataset, jobs = prepare_cases(args.manifest, args.case_ids, profile_dir=args.profile_directory)
         for job in jobs:
             print(f"{job['case']['id']} | {job['payload']['profile']['profile_id']} "
                   f"v{job['payload']['profile']['version']} | {job['model']} / {job['reasoning']}")
