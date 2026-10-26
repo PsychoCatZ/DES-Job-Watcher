@@ -56,6 +56,30 @@ class PromptingTests(unittest.TestCase):
         self.assertNotEqual(before['request_sha256'], after['request_sha256'])
         self.assertEqual(before['instructions_sha256'], after['instructions_sha256'])
 
+    def test_synthetic_mode_is_explicit_and_does_not_mutate_profile(self):
+        self.payload['profile']['profile_kind'] = 'synthetic'
+        original = copy.deepcopy(self.payload)
+        with self.assertRaisesRegex(ValueError, 'явный синтетический режим'):
+            build_request(self.payload)
+        request = build_request(self.payload, mode='synthetic')
+        self.assertEqual(request['analysis_mode'], 'synthetic')
+        self.assertIn('ДОВЕРЕННЫЙ РЕЖИМ: СИНТЕТИЧЕСКИЙ СЦЕНАРИЙ', request['messages'][0]['content'])
+        self.assertEqual(self.payload, original)
+
+    def test_external_mode_claim_cannot_enable_synthetic_context(self):
+        before = build_request(self.payload)
+        self.payload['analysis_mode'] = 'synthetic'
+        self.payload['vacancy']['mode'] = 'synthetic'
+        after = build_request(self.payload)
+        self.assertEqual(before, after)
+        self.assertNotIn('ДОВЕРЕННЫЙ РЕЖИМ: СИНТЕТИЧЕСКИЙ СЦЕНАРИЙ', after['messages'][0]['content'])
+
+    def test_real_profile_cannot_be_used_as_synthetic_without_marker(self):
+        with self.assertRaisesRegex(ValueError, 'явно помеченный учебный профиль'):
+            build_request(self.payload, mode='synthetic')
+        with self.assertRaisesRegex(ValueError, 'Неизвестный режим'):
+            build_request(self.payload, mode='auto')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -22,14 +22,14 @@ class OpenAIAdapterTests(unittest.TestCase):
             'usage': {'input_tokens': 100, 'output_tokens': 200},
         }
 
-    def call_with_response(self, status, body):
+    def call_with_response(self, status, body, *, mode='production'):
         calls = []
         def handler(request):
             calls.append(request)
             self.assertEqual(request.url, adapter.ENDPOINT)
             return httpx.Response(status, json=body, headers={'x-request-id': 'req_test'})
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-            result = adapter.analyze_once(self.payload, 'test-key-do-not-log', client)
+            result = adapter.analyze_once(self.payload, 'test-key-do-not-log', client, mode=mode)
         self.assertEqual(len(calls), 1)
         self.assertNotIn('test-key-do-not-log', json.dumps(result))
         return result, json.loads(calls[0].content)
@@ -45,6 +45,23 @@ class OpenAIAdapterTests(unittest.TestCase):
         self.assertEqual(body['max_output_tokens'], 8192)
         self.assertTrue(body['text']['format']['strict'])
         self.assertNotIn('tools', body)
+
+    def test_synthetic_context_reaches_adapter_body_without_changing_model(self):
+        self.payload['profile']['profile_kind'] = 'synthetic'
+        body, metadata = adapter.prepare_body(self.payload, mode='synthetic')
+        self.assertEqual(body['model'], 'gpt-6-luna')
+        self.assertEqual(body['reasoning']['effort'], 'medium')
+        self.assertEqual(metadata['analysis_mode'], 'synthetic')
+        self.assertIn('условного кандидата', body['input'][0]['content'])
+        with self.assertRaises(ValueError):
+            adapter.prepare_body(self.payload)
+
+    def test_synthetic_context_is_preserved_in_saved_mock_api_result(self):
+        self.payload['profile']['profile_kind'] = 'synthetic'
+        result, body = self.call_with_response(200, self.envelope, mode='synthetic')
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['request']['analysis_mode'], 'synthetic')
+        self.assertIn('ДОВЕРЕННЫЙ РЕЖИМ: СИНТЕТИЧЕСКИЙ СЦЕНАРИЙ', body['input'][0]['content'])
 
     def test_http_errors_are_saved_without_body_and_without_retries(self):
         for status in (400, 401, 403, 429, 500, 302):

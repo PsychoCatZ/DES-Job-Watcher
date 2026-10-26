@@ -16,19 +16,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', action='append', dest='case_ids', help='ID случая; можно повторять')
     parser.add_argument('--live', action='store_true')
+    parser.add_argument('--synthetic', action='store_true', help='Явно оценивать условные факты учебных профилей')
     parser.add_argument('--manifest', type=Path, default=ROOT / 'data/evaluation/development/cases.json',
                         help='Локальный корпус либо вымышленные examples/fixtures/evaluation/cases.json')
     parser.add_argument('--profile-directory', type=Path,
                         help='Явная папка профилей; для синтетического прогона config/profile_examples')
     args = parser.parse_args()
     try:
-        dataset, jobs = prepare_cases(args.manifest, args.case_ids, profile_dir=args.profile_directory)
+        mode = 'synthetic' if args.synthetic else 'production'
+        dataset, jobs = prepare_cases(args.manifest, args.case_ids, profile_dir=args.profile_directory, mode=mode)
+        print('РЕЖИМ:', 'СИНТЕТИЧЕСКИЙ — условные кандидаты, не личные рекомендации' if args.synthetic else 'ЛИЧНЫЙ АНАЛИЗ')
         for job in jobs:
             print(f"{job['case']['id']} | {job['payload']['profile']['profile_id']} "
                   f"v{job['payload']['profile']['version']} | {job['model']} / {job['reasoning']}")
         print(f'Запланировано запросов: {len(jobs)}; повторов нет.')
         if not args.live:
-            print('Все входы проверены. Сеть и ключ не использовались.')
+            print('Предварительная проверка завершена. На этом этапе API-запросов не было.')
             return 0
         api_key = os.environ.get('OPENAI_API_KEY', '')
         if not api_key or any(char.isspace() for char in api_key):
@@ -43,7 +46,7 @@ def main():
                   f"проверки {sum(check['passed'] for check in checks)}/{len(checks)}", flush=True)
         with httpx.Client(timeout=httpx.Timeout(120, connect=15), follow_redirects=False) as client:
             summary = run_cases(dataset, jobs, directory,
-                                lambda payload: analyze_once(payload, api_key, client=client), progress)
+                                lambda payload: analyze_once(payload, api_key, client=client, mode=mode), progress)
         print('Отчёт:', directory / 'report.md')
         return 0 if summary['status'] == 'completed' else 1
     except (OSError, ValueError) as error:

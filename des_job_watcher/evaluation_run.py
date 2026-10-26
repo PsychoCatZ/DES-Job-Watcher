@@ -10,9 +10,11 @@ from des_job_watcher.prompting import canonical_json, fingerprint
 from examples.prepare_analysis import build_input
 
 
-def prepare_cases(manifest, case_ids=None, profile_dir=None):
+def prepare_cases(manifest, case_ids=None, profile_dir=None, *, mode='production'):
     """Проверить весь выбранный набор до первого сетевого запроса."""
     dataset, loaded = load_cases(manifest)
+    if mode == 'synthetic' and (dataset.get('labels_status') != 'synthetic_examples' or profile_dir is None):
+        raise ValueError('Синтетический прогон требует учебный корпус и явно выбранную папку учебных профилей.')
     selected = set(case_ids or [])
     unknown = selected - {case['id'] for case, _ in loaded}
     if unknown:
@@ -24,10 +26,10 @@ def prepare_cases(manifest, case_ids=None, profile_dir=None):
         if case['readiness'] != 'ready':
             raise ValueError(f"{case['id']}: случай ещё не готов к анализу.")
         payload = build_input(case['profile_id'], make_snapshot(case, text), profile_dir=profile_dir)
-        body, metadata = prepare_body(payload)
+        body, metadata = prepare_body(payload, mode=mode)
         jobs.append({'case': case, 'payload': payload, 'request': metadata,
                      'model': body['model'], 'reasoning': body['reasoning']['effort'],
-                     'max_output_tokens': body['max_output_tokens']})
+                     'max_output_tokens': body['max_output_tokens'], 'analysis_mode': mode})
     return dataset, jobs
 
 
@@ -43,6 +45,7 @@ def write_report(directory, summary):
     save_json(directory / 'summary.json', summary)
     lines = ['# Рабочий прогон вакансий', '',
              'Известный development-набор. Ожидания черновые; совпадение полей не доказывает качество объяснений.', '',
+             f"Режим: {summary.get('analysis_mode', 'production')}. Синтетический результат не оценивает реального человека.", '',
              f"Состояние: {summary['status']}. Записей: {len(summary['results'])}/{summary['planned_calls']}.", '',
              '| Случай | Статус | Оценка | Показ | Проверки полей |',
              '| --- | --- | --- | --- | --- |']
@@ -71,12 +74,15 @@ def run_cases(dataset, jobs, directory, analyze, on_result=None):
     directory.mkdir(parents=True, exist_ok=False)
     # Снимок ожиданий хранится для разбора, но analyze получает только payload.
     save_json(directory / 'plan.json', {
-        'dataset_version': dataset['dataset_version'], 'split': dataset['split'],
+        'dataset_version': dataset['dataset_version'], 'dataset_revision': dataset.get('revision'),
+        'split': dataset['split'],
         'labels_status': dataset.get('labels_status', 'draft_for_review'),
         'jobs': [{key: value for key, value in job.items() if key != 'payload'} for job in jobs]})
     for job in jobs:
         save_json(directory / (job['case']['id'] + '.input.json'), job['payload'])
     summary = {'status': 'running', 'planned_calls': len(jobs), 'results': [],
+               'dataset_revision': dataset.get('revision'),
+               'analysis_mode': jobs[0].get('analysis_mode', 'production') if jobs else 'production',
                'started_at': datetime.now(timezone.utc).isoformat(),
                'plan_sha256': fingerprint(canonical_json([
                    job['request']['api_body_sha256'] for job in jobs]))}

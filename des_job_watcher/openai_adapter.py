@@ -34,8 +34,8 @@ def api_schema(schema):
     return result
 
 
-def prepare_body(payload):
-    request = build_request(payload)
+def prepare_body(payload, *, mode='production'):
+    request = build_request(payload, mode=mode)
     if sum(len(message['content']) for message in request['messages']) > 100_000:
         raise ValueError('Вход превышает лимит первого примера: 100 000 символов.')
     schema = json.loads((ROOT / 'config/analysis_response.schema.json').read_text(encoding='utf-8'))
@@ -80,13 +80,13 @@ def extract_output(envelope):
     return texts[0]
 
 
-def analyze_once(payload, api_key, client=None):
+def analyze_once(payload, api_key, client=None, *, mode='production'):
     """Вернуть запись запуска, включая неуспешный анализ. Ключ в запись не входит."""
     if not isinstance(api_key, str) or not api_key.strip():
         raise ValueError('OPENAI_API_KEY не задан.')
     if any(char.isspace() for char in api_key):
         raise ValueError('Ключ содержит пробельные символы. Введите его заново.')
-    body, metadata = prepare_body(payload)
+    body, metadata = prepare_body(payload, mode=mode)
     record = {'provider': 'openai', 'requested_model': MODEL,
               'reasoning_effort': EFFORT, 'max_output_tokens': MAX_OUTPUT_TOKENS,
               'request': metadata, 'status': 'analysis_failed'}

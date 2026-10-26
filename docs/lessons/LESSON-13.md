@@ -1,6 +1,6 @@
 # 13. Противоположные случаи и явный выбор профилей
 
-Сохраняем модель и настройки: GPT-6 Luna, medium, лимит 8192 выходных токена. Правила 3, инструкция 4, контракт 3. В этом шаге новые платные вызовы не выполнялись.
+Сохраняем модель и настройки: GPT-6 Luna, medium, лимит 8192 выходных токена. На момент этого шага: правила 3, инструкция 4, контракт 3. Последующее исправление контекста описано в уроке 14; команды ниже актуализированы с явным синтетическим режимом.
 
 ## Зачем расширять набор
 
@@ -27,7 +27,7 @@
 Манифест выбирает вакансии, папка профилей выбирает сведения о кандидате. Можно взять синтетическую вакансию и реальное резюме, но это будет другой эксперимент, чем сравнение с учебными ожиданиями. Поэтому для воспроизводимого открытого прогона явно выбираем обе стороны:
 
 ```powershell
-.\.venv\Scripts\python.exe -m examples.run_evaluation --manifest examples/fixtures/evaluation/cases.json --profile-directory config/profile_examples
+.\.venv\Scripts\python.exe -m examples.run_evaluation --manifest examples/fixtures/evaluation/cases.json --profile-directory config/profile_examples --synthetic
 ```
 
 Это проверка сборки без сети и ключа. Личные профили не читаются и не заменяются. Начальная команда настройки demo-профилей для этого запуска не требуется. Обычный запуск без этих параметров по-прежнему использует локальный личный корпус и профили.
@@ -51,7 +51,7 @@ load_profile(..., profile_dir=...)
 ## Подготовленный реальный прогон
 
 ```powershell
-.\scripts\run_evaluation.ps1 -Manifest examples/fixtures/evaluation/cases.json -ProfileDirectory config/profile_examples
+.\scripts\run_evaluation.ps1 -Manifest examples/fixtures/evaluation/cases.json -ProfileDirectory config/profile_examples -Synthetic
 ```
 
 До девяти платных запросов, по одному на случай, с маскированным вводом ключа и без повторов. При ошибке прогон останавливается. Это анализ **вымышленных вакансий по вымышленным профилям**, а не оценка личных перспектив пользователя. Личный девятикейсовый корпус не менялся.
@@ -59,7 +59,7 @@ load_profile(..., profile_dir=...)
 Можно выбрать один случай:
 
 ```powershell
-.\scripts\run_evaluation.ps1 -Manifest examples/fixtures/evaluation/cases.json -ProfileDirectory config/profile_examples -CaseIds demo_other_profession
+.\scripts\run_evaluation.ps1 -Manifest examples/fixtures/evaluation/cases.json -ProfileDirectory config/profile_examples -Synthetic -CaseIds demo_other_profession
 ```
 
 Ожидания хранятся отдельно от модельного входа и проверяются после ответа. Их не нужно менять только для получения зелёного отчёта: сначала читаем источник, ответ и причину расхождения. Формальная сборка и модульные тесты не доказывают, что Luna правильно классифицирует каждый новый пример. Это установит отдельный живой прогон и ручной разбор.
