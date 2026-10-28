@@ -20,11 +20,14 @@ def main():
     parser.add_argument('--limit', type=int, default=20)
     parser.add_argument('--live', action='store_true')
     parser.add_argument('--refresh', action='store_true', help='Перепроверить также сохранённые ID')
+    parser.add_argument('--profile', choices=['support', 'ai_data', 'developer'])
     args = parser.parse_args()
     try:
         if not 1 <= args.limit <= 200:
             raise ValueError('Лимит должен быть от 1 до 200.')
         records = json.loads(args.input.read_text(encoding='utf-8'))['candidates']
+        if args.profile:
+            records = [record for record in records if any(source['profile'] == args.profile for source in record['sources'])]
         ids = list(dict.fromkeys(record['vacancy']['id'] for record in records))
         if any(not isinstance(value, str) or not value.isascii() or not value.isdigit() for value in ids):
             raise ValueError('Некорректный HH ID во входе.')

@@ -23,6 +23,9 @@ class History:
                 review_key TEXT PRIMARY KEY, vacancy_id TEXT NOT NULL,
                 profile_id TEXT NOT NULL, created_at TEXT NOT NULL,
                 review_json TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS analysis_attempts (
+                scope_key TEXT PRIMARY KEY, request_hash TEXT NOT NULL,
+                status TEXT NOT NULL, source_path TEXT NOT NULL, created_at TEXT NOT NULL);
         ''')
 
     def __enter__(self):
@@ -43,6 +46,21 @@ class History:
                             (key, review['vacancy_id'], review['profile_id'],
                              datetime.now(timezone.utc).isoformat(), raw))
         return key
+
+    def attempt_status(self, scope_key):
+        row = self.db.execute('SELECT status FROM analysis_attempts WHERE scope_key=?', (scope_key,)).fetchone()
+        return row[0] if row else None
+
+    def reserve_attempt(self, scope_key, request_hash, source_path):
+        with self.db:
+            cursor = self.db.execute('INSERT OR IGNORE INTO analysis_attempts VALUES (?,?,?,?,?)',
+                                     (scope_key, request_hash, 'in_flight', str(source_path),
+                                      datetime.now(timezone.utc).isoformat()))
+        return cursor.rowcount == 1
+
+    def finish_attempt(self, scope_key, status):
+        with self.db:
+            self.db.execute('UPDATE analysis_attempts SET status=? WHERE scope_key=?', (status, scope_key))
 
     def save_detail(self, detail):
         vacancy_id = detail['id']

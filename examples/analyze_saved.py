@@ -14,6 +14,7 @@ from examples.prepare_analysis import build_input
 from des_job_watcher.operational_policy import add_workplace_evidence, equipment_barriers, apply_policy, load_candidate_feedback, load_policy
 from des_job_watcher.history import History
 from examples.report_saved import render_card
+from des_job_watcher.analysis_cache import analysis_scope, import_attempts
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,6 +56,7 @@ def main():
     parser.add_argument('--limit', type=int, default=5, help='Максимум пар вакансия–профиль')
     parser.add_argument('--vacancy', action='append', help='Анализировать только указанные HH ID; можно повторять')
     parser.add_argument('--live', action='store_true', help='Платный анализ Luna, без повторов')
+    parser.add_argument('--profile', choices=['support', 'ai_data'])
     args = parser.parse_args()
     try:
         if not 1 <= args.limit <= 30:
@@ -62,6 +64,10 @@ def main():
         records = json.loads(args.input.read_text(encoding='utf-8'))['candidates']
         jobs = []
         seen = set()
+        with History(ROOT / 'data/watcher.sqlite3') as history:
+            imported = import_attempts(history, ROOT / 'data/analysis_batches')
+            if imported:
+                print(f'Учтено прежних API-попыток: {imported}.')
         with sqlite3.connect(f'file:{ROOT / "data" / "watcher.sqlite3"}?mode=ro', uri=True) as db:
             for record in records:
                 vacancy_id = record['vacancy']['id']
@@ -71,6 +77,11 @@ def main():
                 if row is None:
                     continue
                 detail = json.loads(row[0])
+                employer = detail.get('employer') or {}
+                if any(' '.join(str(employer.get(field, '')).casefold().split())
+                       in ('data light', 'data-light', 'дата лайт') for field in ('name', 'visibleName')):
+                    print(f'{vacancy_id}: исключённый работодатель; платного запроса не будет.')
+                    continue
                 if detail.get('archived') is True:
                     continue
                 snapshot = make_api_snapshot(detail)
@@ -85,6 +96,8 @@ def main():
                     continue
                 for source in record['sources']:
                     profile = source['profile']
+                    if args.profile and profile != args.profile:
+                        continue
                     pair = (vacancy_id, profile)
                     if profile not in ('support', 'ai_data') or pair in seen:
                         continue
@@ -96,6 +109,11 @@ def main():
                     payload = add_workplace_evidence(build_input(profile, snapshot))
                     if not isinstance(payload['vacancy']['employer'], dict):
                         raise ValueError('Работодатель должен быть объектом до вызова LLM.')
+                    with History(ROOT / 'data/watcher.sqlite3') as history:
+                        status = history.attempt_status(analysis_scope(payload))
+                    if status:
+                        print(f'{vacancy_id} | {profile}: прежняя попытка {status}; повторной оплаты не будет.')
+                        continue
                     prepare_body(payload)
                     jobs.append(payload)
                     if len(jobs) >= args.limit:
@@ -118,12 +136,21 @@ def main():
         key = os.environ.get('OPENAI_API_KEY') or read_secret('OpenAI API key (*): ').strip()
         cards = ['# Результаты личного анализа', '']
         for index, payload in enumerate(jobs):
+            _, metadata = prepare_body(payload)
+            scope = analysis_scope(payload)
+            with History(ROOT / 'data/watcher.sqlite3') as history:
+                reserved = history.reserve_attempt(scope, metadata['request_sha256'], directory / f'{index + 1:03}_result.json')
+            if not reserved:
+                print('Попытка уже зарегистрирована другим запуском; пропускаем.')
+                continue
             marker = directory / f'{index + 1:03}_in_flight.json'
             marker.write_text('{"status":"in_flight"}', encoding='utf-8')
             result = analyze_once(payload, key)
             if result['status'] == 'completed':
                 result['operational_review'] = apply_policy(result['assessment'], payload['vacancy'], profile_id=payload['profile']['profile_id'])
             (directory / f'{index + 1:03}_result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+            with History(ROOT / 'data/watcher.sqlite3') as history:
+                history.finish_attempt(scope, result['status'])
             if result['status'] == 'completed':
                 review = result['operational_review']
                 persisted = {**review, 'vacancy_id': payload['vacancy']['id'],
