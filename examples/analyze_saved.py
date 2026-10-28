@@ -11,7 +11,7 @@ import sqlite3
 from des_job_watcher.openai_adapter import analyze_once, prepare_body
 from des_job_watcher.secret_input import read_secret
 from examples.prepare_analysis import build_input
-from des_job_watcher.operational_policy import add_workplace_evidence, equipment_barriers, apply_policy
+from des_job_watcher.operational_policy import add_workplace_evidence, equipment_barriers, apply_policy, load_candidate_feedback, load_policy
 from des_job_watcher.history import History
 from examples.report_saved import render_card
 
@@ -80,7 +80,7 @@ def main():
                         history.save_review({'vacancy_id': vacancy_id, 'profile_id': 'pre_filter',
                                              'kind': 'equipment_filter_before_llm',
                                              'description': snapshot['detail']['description_text'],
-                                             'quotes': barriers, 'operational_policy_version': 1})
+                                             'quotes': barriers, 'operational_policy_version': load_policy()['version']})
                     print(f'{vacancy_id}: исключено до LLM — требование оборудования для голосовой/видеосвязи.')
                     continue
                 for source in record['sources']:
@@ -89,6 +89,10 @@ def main():
                     if profile not in ('support', 'ai_data') or pair in seen:
                         continue
                     seen.add(pair)
+                    feedback = load_candidate_feedback({'id': vacancy_id, 'description': snapshot['detail']['description_text']}, profile)
+                    if feedback:
+                        print(f'{vacancy_id} | {profile}: уже отклонено кандидатом для этой версии; платного запроса не будет.')
+                        continue
                     payload = add_workplace_evidence(build_input(profile, snapshot))
                     if not isinstance(payload['vacancy']['employer'], dict):
                         raise ValueError('Работодатель должен быть объектом до вызова LLM.')
@@ -118,7 +122,7 @@ def main():
             marker.write_text('{"status":"in_flight"}', encoding='utf-8')
             result = analyze_once(payload, key)
             if result['status'] == 'completed':
-                result['operational_review'] = apply_policy(result['assessment'], payload['vacancy'])
+                result['operational_review'] = apply_policy(result['assessment'], payload['vacancy'], profile_id=payload['profile']['profile_id'])
             (directory / f'{index + 1:03}_result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
             if result['status'] == 'completed':
                 review = result['operational_review']

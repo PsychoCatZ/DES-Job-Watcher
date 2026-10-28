@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import re
+import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,7 +33,19 @@ def equipment_barriers(description):
     return found
 
 
-def apply_policy(assessment, vacancy):
+def load_candidate_feedback(vacancy, profile_id, path=None):
+    path = Path(path) if path else ROOT / 'data/private/vacancy_feedback.json'
+    if not profile_id or not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding='utf-8'))
+    digest = hashlib.sha256(vacancy['description'].encode('utf-8')).hexdigest()
+    return [item for item in data['decisions']
+            if item['vacancy_id'] == vacancy['id'] and item['profile_id'] == profile_id
+            and item['description_sha256'] == digest
+            and item['quote'] in vacancy['description']]
+
+
+def apply_policy(assessment, vacancy, *, profile_id=None, feedback_path=None):
     result = deepcopy(assessment)
     quotes = equipment_barriers(vacancy['description'])
     overrides = []
@@ -40,8 +53,17 @@ def apply_policy(assessment, vacancy):
         result['decision'] = 'unsuitable'
         result['delivery'] = {'action': 'exclude', 'reasons': ['required_communication_equipment']}
         overrides.append({'rule': 'required_communication_equipment', 'quotes': quotes})
+    feedback = load_candidate_feedback(vacancy, profile_id, feedback_path)
+    for item in feedback:
+        result['decision'] = 'unsuitable'
+        if result['delivery']['action'] != 'exclude':
+            result['delivery'] = {'action': 'review', 'reasons': ['candidate_declined_current_readiness']}
+        overrides.append({'rule': 'candidate_declined_current_readiness',
+                          'quotes': [item['quote']], 'reason': item['reason'],
+                          'source': 'explicit_candidate_feedback', 'feedback_id': item['id']})
     return {'operational_policy_version': load_policy()['version'],
-            'assessment': result, 'overrides': overrides}
+            'assessment': result, 'overrides': overrides,
+            'candidate_feedback': feedback}
 
 
 def add_workplace_evidence(payload, path=None):
@@ -59,4 +81,13 @@ def add_workplace_evidence(payload, path=None):
             'context': 'Локальный контекст рабочего места; не сведения об опыте из резюме.',
         })
     result['workplace_context_version'] = context['version']
+    candidate_path = ROOT / 'data/private/candidate_facts.json'
+    if path == ROOT / 'data/private/workplace.json' and candidate_path.exists():
+        candidate = json.loads(candidate_path.read_text(encoding='utf-8'))
+        for item in candidate['facts']:
+            result['profile']['evidence'].append({
+                'id': f"{prefix}_candidate_{item['id']}", 'fact': item['fact'],
+                'period': item['confirmed_at'], 'context': 'Прямое уточнение кандидата об актуальности опыта; не текст резюме.',
+            })
+        result['candidate_context_version'] = candidate['version']
     return result

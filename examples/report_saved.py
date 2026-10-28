@@ -27,8 +27,9 @@ def render_card(payload, review):
              f"Основная работа: {analysis['main_work']['summary']}", '',
              analysis['main_work']['reason'], '']
     if review['overrides']:
-        lines += ['**Новое основание исключения — требование оборудования для связи:**', '']
+        lines += ['**Основания изменения решения:**', '']
         for override in review['overrides']:
+            lines += [override.get('reason', 'Требование оборудования для голосовой/видеосвязи.'), '']
             lines.extend('> ' + quote for quote in override['quotes'])
         lines.append('')
     condition = analysis['conditions']['communication']
@@ -71,7 +72,7 @@ def main():
                 if identity in seen:
                     continue
                 seen.add(identity)
-                review = apply_policy(assessment, payload['vacancy'])
+                review = apply_policy(assessment, payload['vacancy'], profile_id=identity[1])
                 review.update(vacancy_id=identity[0], profile_id=identity[1],
                               source_path=str(source.resolve()), source_sha256=sha(source),
                               input_sha256=sha(input_path), assessment_source_sha256=sha(origin),
