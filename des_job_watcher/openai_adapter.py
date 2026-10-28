@@ -35,20 +35,23 @@ def api_schema(schema):
     return result
 
 
-def prepare_body(payload, *, mode='production'):
+def prepare_body(payload, *, mode='production', effort=EFFORT):
+    if effort not in ('medium', 'high'):
+        raise ValueError('Для этого адаптера допустимы medium и high.')
     request = build_request(payload, mode=mode)
     if sum(len(message['content']) for message in request['messages']) > 100_000:
         raise ValueError('Вход превышает лимит первого примера: 100 000 символов.')
     schema = json.loads((ROOT / 'config/analysis_response.schema.json').read_text(encoding='utf-8'))
     body = {
         'model': MODEL, 'input': request['messages'],
-        'reasoning': {'effort': EFFORT}, 'max_output_tokens': MAX_OUTPUT_TOKENS,
+        'reasoning': {'effort': effort}, 'max_output_tokens': MAX_OUTPUT_TOKENS,
         'store': False,
         'text': {'format': {'type': 'json_schema', 'name': 'vacancy_assessment',
                             'strict': True, 'schema': api_schema(schema)}},
     }
     metadata = {key: value for key, value in request.items() if key != 'messages'}
     metadata['api_body_sha256'] = fingerprint(canonical_json(body))
+    metadata['reasoning_effort'] = effort
     return body, metadata
 
 
@@ -81,15 +84,15 @@ def extract_output(envelope):
     return texts[0]
 
 
-def analyze_once(payload, api_key, client=None, *, mode='production'):
+def analyze_once(payload, api_key, client=None, *, mode='production', effort=EFFORT):
     """Вернуть запись запуска, включая неуспешный анализ. Ключ в запись не входит."""
     if not isinstance(api_key, str) or not api_key.strip():
         raise ValueError('OPENAI_API_KEY не задан.')
     if any(char.isspace() for char in api_key):
         raise ValueError('Ключ содержит пробельные символы. Введите его заново.')
-    body, metadata = prepare_body(payload, mode=mode)
+    body, metadata = prepare_body(payload, mode=mode, effort=effort)
     record = {'provider': 'openai', 'requested_model': MODEL,
-              'reasoning_effort': EFFORT, 'max_output_tokens': MAX_OUTPUT_TOKENS,
+              'reasoning_effort': effort, 'max_output_tokens': MAX_OUTPUT_TOKENS,
               'request': metadata, 'status': 'analysis_failed'}
     own_client = client is None
     if own_client:
