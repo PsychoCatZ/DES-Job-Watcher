@@ -2,12 +2,12 @@
 
 import argparse
 from datetime import datetime, timezone
-from getpass import getpass
 import json
 import os
 from pathlib import Path
 
 from des_job_watcher.hh_api import HHClient, HHError, collect_candidates
+from des_job_watcher.secret_input import read_secret
 from examples.fetch_hh_page import load_search_plan
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,14 +33,14 @@ def main():
         agent = os.environ.get('HH_USER_AGENT') or input('HH-User-Agent (DES-Job-Watcher/0.1 (ваша почта)): ').strip()
         token = None
         if not args.issue_token:
-            token = os.environ.get('HH_ACCESS_TOKEN') or getpass('Токен приложения HH (скрыт): ').strip()
+            token = os.environ.get('HH_ACCESS_TOKEN') or read_secret('Токен приложения HH (*): ').strip()
             if not token:
                 raise ValueError('Пустой токен HH.')
         with HHClient(agent, token) as client:
             if args.issue_token:
                 print('Получение токена один раз. Прежний токен будет отозван.')
-                client.issue_token(getpass('Client ID (скрыт): ').strip(),
-                                   getpass('Client Secret (скрыт): ').strip())
+                client.issue_token(read_secret('Client ID (*): ').strip(),
+                                   read_secret('Client Secret (*): ').strip())
                 print('Токен получен и используется в памяти. Для следующих запусков он доступен в кабинете HH.')
             result = collect_candidates(client, plan, profiles, per_page=args.per_page)
         result['fetched_at'] = datetime.now(timezone.utc).isoformat()

@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+from des_job_watcher.operational_policy import load_policy
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,6 +73,8 @@ def build_request(payload, *, mode='production'):
     user_content = canonical_json(data)
     system_content = (instruction + '\n\nДОВЕРЕННЫЕ ПРАВИЛА:\n' + canonical_json(rules)
                       + '\n\nКОНТРАКТ ОТВЕТА:\n' + canonical_json(schema))
+    policy = load_policy()
+    system_content += '\n\nДОПОЛНИТЕЛЬНАЯ ПОЛИТИКА ОТБОРА:\n' + canonical_json(policy)
     if mode == 'synthetic':
         system_content += '\n\n' + SYNTHETIC_CONTEXT
     messages = [{'role': 'system', 'content': system_content},
@@ -79,6 +82,7 @@ def build_request(payload, *, mode='production'):
     return {
         'request_version': 1, 'prompt_version': PROMPT_VERSION,
         'rules_version': rules['version'], 'analysis_mode': mode,
+        'operational_policy_version': policy['version'],
         'input_sha256': fingerprint(user_content),
         'instructions_sha256': fingerprint(system_content),
         'request_sha256': fingerprint(canonical_json(messages)),

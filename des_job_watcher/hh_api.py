@@ -54,6 +54,16 @@ class HHClient:
         self.client.headers['Authorization'] = f'Bearer {token}'
         # Токен остаётся в памяти. Владелец может посмотреть его в кабинете HH.
 
+    def detail(self, vacancy_id):
+        if not isinstance(vacancy_id, str) or not vacancy_id.isascii() or not vacancy_id.isdigit():
+            raise ValueError('Нужен числовой HH ID.')
+        if 'Authorization' not in self.client.headers:
+            raise ValueError('Не задан токен приложения HH.')
+        data = self._request('GET', f'/vacancies/{vacancy_id}')
+        if data.get('id') != vacancy_id or not isinstance(data.get('description'), str):
+            raise HHError('Некорректное полное описание HH.')
+        return data
+
     def search(self, text, *, page=0, per_page=20):
         if 'Authorization' not in self.client.headers:
             raise ValueError('Не задан токен приложения HH.')
