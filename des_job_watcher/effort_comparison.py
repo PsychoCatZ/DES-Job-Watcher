@@ -93,14 +93,16 @@ def write_comparison_report(directory, jobs):
     (directory / 'report.md').write_text('\n'.join(lines), encoding='utf-8')
 
 
-def run_comparison(directory, jobs, history, analyze):
+def run_comparison(directory, jobs, history, analyze, *, skip_saved_failures=False):
     directory = Path(directory)
     for job in jobs:
         output = directory / f"{job['id']}.result.json"
         if output.exists():
             record = json.loads(output.read_text(encoding='utf-8'))
             if record['status'] != 'completed':
-                raise ValueError('Есть неуспешный результат: автоматического повтора нет.')
+                if not skip_saved_failures:
+                    raise ValueError('Есть неуспешный результат: автоматического повтора нет.')
+                print(f"{job['id']}: сохранённая ошибка остаётся в сравнении, без повтора.", flush=True)
             continue
         scope = 'effort_comparison:' + job['request']['api_body_sha256']
         if not history.reserve_attempt(scope, job['request']['api_body_sha256'], output):

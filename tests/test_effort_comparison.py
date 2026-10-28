@@ -65,6 +65,13 @@ class EffortComparisonTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     run_comparison(pack, jobs, history, analyze)
                 self.assertEqual(called, ['medium'])
+                def complete(payload, effort):
+                    called.append(effort)
+                    return {'status': 'completed', 'request': jobs[1]['request']}
+                self.assertTrue(run_comparison(pack, jobs, history, complete, skip_saved_failures=True))
+                self.assertEqual(called, ['medium', 'high'])
+                failed = json.loads((pack / '01_medium.result.json').read_text(encoding='utf-8'))
+                self.assertEqual(failed['status'], 'analysis_failed')
 
     def test_reuse_requires_exact_api_body_and_keeps_original(self):
         with tempfile.TemporaryDirectory() as directory:

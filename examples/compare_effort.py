@@ -19,6 +19,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pack', type=Path, required=True)
     parser.add_argument('--live', action='store_true')
+    parser.add_argument('--continue-after-failure', action='store_true',
+                        help='Пропустить уже сохранённые ошибки без повторного запроса и продолжить остальные случаи')
     args = parser.parse_args()
     try:
         jobs = load_jobs(args.pack)
@@ -27,8 +29,10 @@ def main():
             path = args.pack / f"{job['id']}.result.json"
             if path.exists():
                 record = json.loads(path.read_text(encoding='utf-8'))
-                if record.get('status') != 'completed' or record.get('request', {}).get('api_body_sha256') != job['request']['api_body_sha256']:
+                if record.get('request', {}).get('api_body_sha256') != job['request']['api_body_sha256']:
                     raise ValueError('Сохранённый ответ неуспешен или отличается от плана. Повтор отключён.')
+                if record.get('status') != 'completed' and not args.continue_after_failure:
+                    raise ValueError('Есть сохранённая ошибка. Для остальных запросов добавьте --continue-after-failure; ошибочный запрос повторяться не будет.')
             else:
                 pending.append(job)
             print(f"{job['id']} | {job['case_id']} | {'новый запрос' if job in pending else 'ответ сохранён'}")
@@ -44,7 +48,8 @@ def main():
             key = os.environ.get('OPENAI_API_KEY') or read_secret('OpenAI API key (*): ').strip()
             with httpx.Client(timeout=httpx.Timeout(240, connect=15), follow_redirects=False) as client:
                 success = run_comparison(args.pack, jobs, history,
-                    lambda payload, effort: analyze_once(payload, key, client, effort=effort))
+                    lambda payload, effort: analyze_once(payload, key, client, effort=effort),
+                    skip_saved_failures=args.continue_after_failure)
         print(f'Отчёт: {args.pack / "report.md"}')
         return 0 if success else 1
     except (OSError, ValueError, KeyError) as error:
