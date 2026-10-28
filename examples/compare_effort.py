@@ -25,6 +25,8 @@ def main():
     try:
         jobs = load_jobs(args.pack)
         pending = []
+        successful = 0
+        failed = 0
         for job in jobs:
             path = args.pack / f"{job['id']}.result.json"
             if path.exists():
@@ -33,13 +35,20 @@ def main():
                     raise ValueError('Сохранённый ответ неуспешен или отличается от плана. Повтор отключён.')
                 if record.get('status') != 'completed' and not args.continue_after_failure:
                     raise ValueError('Есть сохранённая ошибка. Для остальных запросов добавьте --continue-after-failure; ошибочный запрос повторяться не будет.')
+                if record.get('status') == 'completed':
+                    successful += 1
+                else:
+                    failed += 1
             else:
                 pending.append(job)
-            print(f"{job['id']} | {job['case_id']} | {'новый запрос' if job in pending else 'ответ сохранён'}")
+            label = 'новый запрос' if job in pending else ('успешный ответ сохранён' if record.get('status') == 'completed' else 'ошибка сохранена, без повтора')
+            print(f"{job['id']} | {job['case_id']} | {label}")
         write_comparison_report(args.pack, jobs)
         print(f'Предстоит платных запросов: {len(pending)}. Модель: gpt-6-luna. Лимит: 8192. Повторов нет.')
         if not args.live or not pending:
             print('Сеть и ключ не использовались.')
+            print(f'Состояние пакета: успешных ответов {successful}, неуспешных {failed}, осталось {len(pending)}.')
+            print(f'Отчёт: {args.pack / "report.md"}')
             return 0
         with History(ROOT / 'data/watcher.sqlite3') as history:
             for job in pending:
@@ -51,6 +60,8 @@ def main():
                     lambda payload, effort: analyze_once(payload, key, client, effort=effort),
                     skip_saved_failures=args.continue_after_failure)
         print(f'Отчёт: {args.pack / "report.md"}')
+        records = [json.loads(path.read_text(encoding='utf-8')) for path in args.pack.glob('*.result.json')]
+        print(f"Сохранено: {len(records)}/{len(jobs)}. Успешных: {sum(r.get('status') == 'completed' for r in records)}; неуспешные остаются в отчёте.")
         return 0 if success else 1
     except (OSError, ValueError, KeyError) as error:
         print(f'Сравнение остановлено: {error}')
