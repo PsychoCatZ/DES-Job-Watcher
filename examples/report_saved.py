@@ -26,6 +26,12 @@ def render_card(payload, review):
              f"Решение после локальной политики: **{current['decision']} / {current['delivery']['action']}**", '',
              f"Основная работа: {analysis['main_work']['summary']}", '',
              analysis['main_work']['reason'], '']
+    if 'entry_readiness' in current:
+        lines += [f"Готовность к основной работе сейчас: **{current['entry_readiness']}**. {current['readiness_reason']}", '']
+        if current.get('readiness_routing', {}).get('advanced_core_gaps'):
+            lines += ['Маршрут изменён из-за неподтверждённого ключевого требования высокого уровня. Это основание профессионального разбора, а не доказательство неспособности кандидата.', '']
+    for correction in current.get('semantic_corrections', []):
+        lines += [f"Проверка доступности: {correction['path']} — {correction['before']} → {correction['after']} по известному отсутствию слуха.", '']
     if review['overrides']:
         lines += ['**Основания изменения решения:**', '']
         for override in review['overrides']:
@@ -39,7 +45,10 @@ def render_card(payload, review):
         lines += ['Требования из исходного анализа, которые модель не подтвердила или сочла конфликтом:', '']
         lines.extend(f"- {item['text']} — {item['status']}: {item['reason']}" for item in requirements)
         lines.append('')
-    lines += ['Это пересчёт сохранённого анализа, не новый ответ Luna. Новые сведения о компьютере и переносе опыта не переоценивают старые требования автоматически.', '']
+    if review.get('kind') == 'new_analysis_with_operational_policy':
+        lines += ['Новый ответ Luna с отдельной программной проверкой и применением текущей политики.', '']
+    else:
+        lines += ['Это пересчёт сохранённого анализа, не новый ответ Luna. Новые сведения о компьютере и переносе опыта не переоценивают старые требования автоматически.', '']
     return lines
 
 

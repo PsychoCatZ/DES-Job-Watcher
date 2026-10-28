@@ -9,6 +9,7 @@ import httpx
 from des_job_watcher.assessment import AnalysisValidationError, parse_response, validate_and_decide
 from des_job_watcher.prompting import ROOT, build_request, canonical_json, fingerprint
 from des_job_watcher.quote_recovery import repair_terminal_punctuation
+from des_job_watcher.source_fragments import response_schema
 
 
 MODEL = 'gpt-6-luna'
@@ -41,7 +42,7 @@ def prepare_body(payload, *, mode='production', effort=EFFORT):
     request = build_request(payload, mode=mode)
     if sum(len(message['content']) for message in request['messages']) > 100_000:
         raise ValueError('Вход превышает лимит первого примера: 100 000 символов.')
-    schema = json.loads((ROOT / 'config/analysis_response.schema.json').read_text(encoding='utf-8'))
+    schema = response_schema(payload)
     body = {
         'model': MODEL, 'input': request['messages'],
         'reasoning': {'effort': effort}, 'max_output_tokens': MAX_OUTPUT_TOKENS,
@@ -120,9 +121,15 @@ def analyze_once(payload, api_key, client=None, *, mode='production', effort=EFF
             output_text = extract_output(envelope)
             record['output_text'] = output_text
             analysis = parse_response(output_text)
+            if not isinstance(analysis, dict):
+                raise AnalysisValidationError('Ожидался объект анализа.')
+            if payload.get('analysis_contract_version') == 4 and analysis.get('contract_version') != 4:
+                raise AnalysisValidationError('Ожидался ответ по контракту 4.')
             try:
                 record['assessment'] = validate_and_decide(analysis, payload)
             except AnalysisValidationError:
+                if payload.get('analysis_contract_version') == 4:
+                    raise
                 corrected, changes = repair_terminal_punctuation(analysis, payload)
                 if not changes:
                     raise

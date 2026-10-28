@@ -15,6 +15,7 @@ from des_job_watcher.operational_policy import add_workplace_evidence, equipment
 from des_job_watcher.history import History
 from examples.report_saved import render_card
 from des_job_watcher.analysis_cache import analysis_scope, import_attempts
+from des_job_watcher.source_fragments import response_schema
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -107,6 +108,8 @@ def main():
                         print(f'{vacancy_id} | {profile}: уже отклонено кандидатом для этой версии; платного запроса не будет.')
                         continue
                     payload = add_workplace_evidence(build_input(profile, snapshot))
+                    payload['analysis_contract_version'] = 4
+                    payload['response_contract'] = response_schema(payload)
                     if not isinstance(payload['vacancy']['employer'], dict):
                         raise ValueError('Работодатель должен быть объектом до вызова LLM.')
                     with History(ROOT / 'data/watcher.sqlite3') as history:
@@ -159,13 +162,13 @@ def main():
                              'request': result['request'], 'source_path': str(directory / f'{index + 1:03}_result.json')}
                 with History(ROOT / 'data/watcher.sqlite3') as history:
                     history.save_review(persisted)
-                cards.extend(render_card(payload, review))
+                cards.extend(render_card(payload, {**review, 'kind': 'new_analysis_with_operational_policy'}))
                 (directory / 'report.md').write_text('\n'.join(cards), encoding='utf-8')
             marker.unlink()
             if result['status'] != 'completed':
                 print(f"Остановлено: {result['status']}. Результат сохранён.")
                 return 1
-            assessment = result['assessment']
+            assessment = result['operational_review']['assessment']
             print(f"{index + 1}/{len(jobs)}: {assessment['decision']} / {assessment['delivery']['action']}")
         return 0
     except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
