@@ -119,3 +119,34 @@ class AssessmentV4Tests(unittest.TestCase):
         body, _ = prepare_body(self.payload)
         self.assertNotIn(attack, body['input'][0]['content'])
         self.assertIn(attack, body['input'][1]['content'])
+
+    def mixed_remote(self, line):
+        self.payload['vacancy']['work_formats'] = ['ON_SITE', 'REMOTE', 'HYBRID']
+        self.payload['vacancy']['description'] += '\n' + line
+        remote = self.response['conditions']['remote']
+        remote.update(status='confirmed', field_refs=['vacancy.work_formats'],
+                      quote_ids=[source_fragments(self.payload['vacancy'])[-1]['id']])
+
+    def test_explicit_remote_text_survives_redundant_mixed_field_reference(self):
+        self.mixed_remote('Удаленный формат работы')
+        original = deepcopy(self.response)
+        result = validate_and_decide(self.response, self.payload)
+        self.assertEqual(result['analysis']['conditions']['remote']['status'], 'confirmed')
+        self.assertEqual(result['analysis']['conditions']['remote']['field_refs'], [])
+        self.assertEqual(result['semantic_corrections'][0]['rule'],
+                         'explicit_remote_text_over_redundant_mixed_fields')
+        self.assertEqual(self.response, original)
+
+    def test_mixed_formats_without_explicit_positive_text_still_fail(self):
+        for line in ('Удаленная работа невозможна', 'Офис или гибрид',
+                     'Удаленный формат работы не предусмотрен', 'Удаленная работа три дня, два дня офис'):
+            self.setUp()
+            self.mixed_remote(line)
+            with self.subTest(line=line), self.assertRaises(AnalysisValidationError):
+                validate_and_decide(self.response, self.payload)
+
+    def test_only_remote_structured_field_still_confirms_without_quote(self):
+        self.payload['vacancy']['work_formats'] = ['REMOTE']
+        self.response['conditions']['remote'].update(quote_ids=[], field_refs=['vacancy.work_formats'])
+        result = validate_and_decide(self.response, self.payload)
+        self.assertEqual(result['analysis']['conditions']['remote']['field_refs'], ['vacancy.work_formats'])

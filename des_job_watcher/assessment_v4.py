@@ -54,6 +54,21 @@ def validate_v4(response, payload):
     deaf_ids = [item['id'] for item in payload['profile']['evidence']
                 if re.search(r'отсутстви[ея] слуха|\bя глух|\bкандидат глух|не слышу', item['fact'].lower())]
     corrections = []
+    remote = resolved['conditions']['remote']
+    formats = payload['vacancy'].get('work_formats')
+    # Поле со всеми вариантами не подтверждает полную удалёнку. Но его лишняя
+    # ссылка не должна обесценивать отдельное явное текстовое подтверждение.
+    explicit_remote = [quote for quote in remote['quotes'] if re.fullmatch(
+        r'(?:полностью\s+)?удал[её]нн(?:ый\s+формат(?:\s+работы)?|ая\s+работа)[.!;]?'
+        r'|работа\s+полностью\s+удал[её]нная[.!;]?', quote.strip().casefold())]
+    if (remote['status'] == 'confirmed' and remote['field_refs'] == ['vacancy.work_formats']
+            and isinstance(formats, list) and 'REMOTE' in formats and set(formats) != {'REMOTE'}
+            and explicit_remote):
+        corrections.append({'path': 'conditions.remote.field_refs',
+                            'before': remote['field_refs'][:], 'after': [],
+                            'rule': 'explicit_remote_text_over_redundant_mixed_fields',
+                            'quotes': explicit_remote})
+        remote['field_refs'] = []
     core_gaps = []
     advanced_gaps = []
     mandatory_hearing = []
@@ -94,4 +109,5 @@ def validate_v4(response, payload):
                       readiness_reason=readiness_reason, semantic_corrections=corrections,
                       readiness_routing={'core_gaps': core_gaps, 'advanced_core_gaps': advanced_gaps},
                       assessment_policy_version=4)
+    assessment['validation_revision'] = 2
     return assessment
