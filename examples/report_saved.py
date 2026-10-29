@@ -60,6 +60,9 @@ def main():
     parser.add_argument('--batch', type=Path, action='append', required=True)
     args = parser.parse_args()
     cards = []
+    groups = {'consider': [], 'professional_review': [], 'excluded': []}
+    summary_cards = []
+    unfinished = []
     seen = set()
     output = ROOT / 'data' / 'reports' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S_%fZ')
     output.mkdir(parents=True, exist_ok=False)
@@ -67,6 +70,14 @@ def main():
     policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     with History(ROOT / 'data/watcher.sqlite3') as history:
         for batch in args.batch:
+            for pending_input in sorted(batch.glob('*_input.json')):
+                pending_result = pending_input.with_name(pending_input.name.replace('_input.json', '_result.json'))
+                if not pending_result.exists():
+                    pending_payload = json.loads(pending_input.read_text(encoding='utf-8'))
+                    unfinished.append({'vacancy_id': pending_payload['vacancy']['id'],
+                                       'name': pending_payload['vacancy']['name'],
+                                       'profile_id': pending_payload['profile']['profile_id'],
+                                       'status': 'pending', 'source_input': str(pending_input.resolve())})
             for source in sorted(batch.glob('*_result.json')):
                 prefix = source.name.split('_')[0]
                 input_path = batch / f'{prefix}_input.json'
@@ -78,6 +89,11 @@ def main():
                 else:
                     origin = batch / f'{prefix}_local_review.json'
                     if not origin.exists():
+                        unfinished.append({'vacancy_id': payload['vacancy']['id'],
+                                           'name': payload['vacancy']['name'],
+                                           'profile_id': payload['profile']['profile_id'],
+                                           'status': record.get('status', 'unknown'),
+                                           'error': record.get('error', ''), 'source_result': str(source.resolve())})
                         continue
                     assessment = json.loads(origin.read_text(encoding='utf-8'))['assessment']
                 identity = (payload['vacancy']['id'], payload['profile']['profile_id'])
@@ -92,9 +108,27 @@ def main():
                               kind='local_policy_replay_not_new_model_answer')
                 key = history.save_review(review)
                 (output / f'{key}.json').write_text(json.dumps(review, ensure_ascii=False, indent=2), encoding='utf-8')
-                cards.extend(render_card(payload, review))
+                current = review['assessment']
+                group = ('excluded' if current['delivery']['action'] == 'exclude' else
+                         'professional_review' if current['decision'] == 'unsuitable' or current['delivery']['action'] == 'review' else 'consider')
+                groups[group].extend(render_card(payload, review))
+                summary_cards.append({'vacancy_id': identity[0], 'profile_id': identity[1],
+                                      'name': payload['vacancy']['name'], 'group': group,
+                                      'decision': current['decision'], 'delivery': current['delivery'],
+                                      'review_file': f'{key}.json',
+                                      'assessment_origin': 'original_response' if origin == source else 'local_revalidation'})
                 print(f"{identity[0]} | {identity[1]} | {assessment['decision']} -> {review['assessment']['decision']} / {review['assessment']['delivery']['action']}")
-    (output / 'report.md').write_text('\n'.join(['# Сохранённые вакансии: локальный пересчёт', '', *cards]), encoding='utf-8')
+    summary = {'kind': 'combined_saved_analysis_report', 'cards': summary_cards,
+               'unfinished': unfinished, 'counts': {key: sum(card['group'] == key for card in summary_cards) for key in groups}}
+    (output / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+    cards = ['# Итог обработки сохранённых вакансий', '',
+             'Рассмотреть — не гарантия соответствия. Профессиональный разбор и исключения доступны ниже.', '',
+             f"Для рассмотрения: {summary['counts']['consider']}; профессиональный разбор: {summary['counts']['professional_review']}; исключены: {summary['counts']['excluded']}; не завершены: {len(unfinished)}.", '']
+    for group, label in [('consider', 'Для рассмотрения'), ('professional_review', 'Профессиональный разбор'), ('excluded', 'Исключены по условиям')]:
+        cards.extend([f'# {label}', '', *(groups[group] or ['Нет карточек.', ''])])
+    cards.extend(['# Не завершены', ''])
+    cards.extend([f"- {item['name']} ({item['profile_id']}): {item['status']}. {item.get('error', '')}" for item in unfinished] or ['Нет незавершённых входов.'])
+    (output / 'report.md').write_text('\n'.join(cards), encoding='utf-8')
     print(f'Карточек: {len(seen)}. Отчёт: {output / "report.md"}. Сеть и ключи не использовались.')
     return 0
 
