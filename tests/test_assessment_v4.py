@@ -150,3 +150,19 @@ class AssessmentV4Tests(unittest.TestCase):
         self.response['conditions']['remote'].update(quote_ids=[], field_refs=['vacancy.work_formats'])
         result = validate_and_decide(self.response, self.payload)
         self.assertEqual(result['analysis']['conditions']['remote']['field_refs'], ['vacancy.work_formats'])
+
+    def test_russia_explicit_quote_removes_irrelevant_remote_reference(self):
+        self.payload['vacancy']['description'] += '\nУдаленная работа из любого города России;'
+        c = self.response['conditions']['work_from_russia']
+        c.update(status='confirmed', field_refs=['vacancy.work_formats'], quote_ids=[source_fragments(self.payload['vacancy'])[-1]['id']])
+        original = deepcopy(self.response)
+        result = validate_and_decide(self.response, self.payload)
+        self.assertEqual(result['analysis']['conditions']['work_from_russia']['field_refs'], [])
+        self.assertEqual(result['semantic_corrections'][0]['rule'], 'explicit_russia_text_over_irrelevant_format_field')
+        self.assertEqual(self.response, original)
+
+    def test_format_alone_never_proves_russia(self):
+        c = self.response['conditions']['work_from_russia']
+        c.update(status='confirmed', field_refs=['vacancy.work_formats'], quote_ids=[])
+        with self.assertRaises(AnalysisValidationError):
+            validate_and_decide(self.response, self.payload)

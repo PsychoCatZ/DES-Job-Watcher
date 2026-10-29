@@ -31,8 +31,9 @@ def render_card(payload, review):
         if current.get('readiness_routing', {}).get('advanced_core_gaps'):
             lines += ['Маршрут изменён из-за неподтверждённого ключевого требования высокого уровня. Это основание профессионального разбора, а не доказательство неспособности кандидата.', '']
     for correction in current.get('semantic_corrections', []):
-        explanation = ('по известному отсутствию слуха' if correction['rule'] == 'known_hearing_unavailable'
-                       else 'явный текст подтверждает удалёнку; избыточная ссылка на смешанное поле удалена')
+        explanation = {'known_hearing_unavailable': 'по известному отсутствию слуха',
+                       'explicit_remote_text_over_redundant_mixed_fields': 'явный текст подтверждает удалёнку; избыточная ссылка на смешанное поле удалена',
+                       'explicit_russia_text_over_irrelevant_format_field': 'явный текст подтверждает работу из России; неверная ссылка на формат удалена'}.get(correction['rule'], correction['rule'])
         lines += [f"Проверка согласованности: {correction['path']} — {correction['before']} → {correction['after']}: {explanation}.", '']
     if review['overrides']:
         lines += ['**Основания изменения решения:**', '']

@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--issue-token', action='store_true', help='Получить первый токен; прежний будет отозван')
     parser.add_argument('--profile', action='append', choices=['support', 'ai_data', 'developer'])
     parser.add_argument('--per-page', type=int, default=20, choices=range(1, 101), metavar='1..100')
+    parser.add_argument('--run-directory', type=Path, help='Новый каталог для сохранения результатов поиска')
     args = parser.parse_args()
     plan = load_search_plan()
     profiles = list(dict.fromkeys(args.profile or plan['default_profiles']))
@@ -45,7 +46,7 @@ def main():
             result = collect_candidates(client, plan, profiles, per_page=args.per_page)
         result['fetched_at'] = datetime.now(timezone.utc).isoformat()
         result['status'] = 'search_candidates_not_recommendations'
-        directory = ROOT / 'data' / 'hh_api' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S_%fZ')
+        directory = args.run_directory or ROOT / 'data' / 'hh_api' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S_%fZ')
         directory.mkdir(parents=True, exist_ok=False)
         (directory / 'candidates.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
         lines = ['# Кандидаты из поиска HH', '',

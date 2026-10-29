@@ -54,6 +54,18 @@ def validate_v4(response, payload):
     deaf_ids = [item['id'] for item in payload['profile']['evidence']
                 if re.search(r'отсутстви[ея] слуха|\bя глух|\bкандидат глух|не слышу', item['fact'].lower())]
     corrections = []
+    country = resolved['conditions']['work_from_russia']
+    # Отдельная текстовая цитата подтверждает страну; work_formats к ней не относится.
+    explicit_russia = [quote for quote in country['quotes'] if re.fullmatch(
+        r'удал[её]нная\s+работа\s+из\s+любого\s+(?:города|региона)\s+россии[.!;]?',
+        quote.strip().casefold())]
+    if (country['status'] == 'confirmed' and country['field_refs'] == ['vacancy.work_formats']
+            and explicit_russia):
+        corrections.append({'path': 'conditions.work_from_russia.field_refs',
+                            'before': country['field_refs'][:], 'after': [],
+                            'rule': 'explicit_russia_text_over_irrelevant_format_field',
+                            'quotes': explicit_russia})
+        country['field_refs'] = []
     remote = resolved['conditions']['remote']
     formats = payload['vacancy'].get('work_formats')
     # Поле со всеми вариантами не подтверждает полную удалёнку. Но его лишняя
