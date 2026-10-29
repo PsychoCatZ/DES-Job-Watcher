@@ -70,7 +70,7 @@ class PrepareAnalysisTests(unittest.TestCase):
 
     def test_developer_keeps_resume_git_and_database_evidence(self):
         profile = example.load_profile('developer')
-        self.assertEqual(profile['version'], 1)
+        self.assertEqual(profile['version'], 2)
         facts = {entry['id']: entry['fact'] for entry in profile['evidence']}
         self.assertIn('Git и GitHub', facts['developer_07'])
         self.assertIn('баз данных 1С', facts['developer_08'])
@@ -113,7 +113,7 @@ class PrepareAnalysisTests(unittest.TestCase):
 
     def test_full_source_sections_and_education_reach_model_request(self):
         payload = example.build_input('ai_data', self.snapshot)
-        data = json.loads(build_request(payload)['messages'][1]['content'])
+        data = json.loads(build_request(payload, mode='synthetic')['messages'][1]['content'])
         self.assertEqual(data['profile']['education']['level'], 'secondary_vocational')
         ids = {e['id'] for e in data['profile']['evidence']}
         self.assertIn('ai_data_source_experience', ids)

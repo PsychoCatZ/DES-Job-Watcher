@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "default_profiles": ["support", "ai_data"],
   "profiles": {
     "support": {
       "label": "Письменная и техническая поддержка",

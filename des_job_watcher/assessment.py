@@ -61,6 +61,12 @@ def check_evidence(ids, allowed_ids, path, required=False):
 
 def validate_and_decide(response, payload):
     """Вернуть проверенный анализ с итогом; при ошибке поднять исключение."""
+    if isinstance(response, dict) and response.get('contract_version') == 4:
+        from des_job_watcher.assessment_v4 import validate_v4
+        try:
+            return validate_v4(response, payload)
+        except (KeyError, TypeError, AttributeError) as error:
+            raise AnalysisValidationError('Неполные или некорректные данные контракта 4.') from error
     if not isinstance(payload, dict):
         raise AnalysisValidationError("Вход анализа должен быть объектом")
     try:

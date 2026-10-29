@@ -17,10 +17,11 @@ PROFILE_IDS = ("support", "developer", "ai_data")
 PROFILE_DIR = ROOT / 'config' / 'profiles'
 
 
-def load_profile(profile_id):
+def load_profile(profile_id, profile_dir=None):
     if profile_id not in PROFILE_IDS:
         raise ValueError("Неизвестный профиль.")
-    path = PROFILE_DIR / f'{profile_id}.json'
+    directory = Path(profile_dir) if profile_dir is not None else PROFILE_DIR
+    path = directory / f'{profile_id}.json'
     if not path.is_file():
         raise ValueError('Личный профиль отсутствует. Для учебного запуска выполните '
                          'python -m examples.setup_demo_profiles; это вымышленные данные.')
@@ -45,8 +46,8 @@ def load_profile(profile_id):
     return profile
 
 
-def build_input(profile_id, snapshot):
-    profile = load_profile(profile_id)
+def build_input(profile_id, snapshot, profile_dir=None):
+    profile = load_profile(profile_id, profile_dir)
     rules = json.loads((ROOT / 'config' / 'matching_rules.json').read_text(encoding='utf-8'))
     if rules.get('version') != 3:
         raise ValueError("Неизвестная версия правил.")
